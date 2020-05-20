@@ -1,0 +1,135 @@
+
+---
+title: "SAVVY: estimation of AE probabilities"
+author: "Kaspar Rufibach"
+date: "Last change: `r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  rmarkdown::html_document:
+    highlight: pygments
+    number_sections: yes
+    self_contained: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+This R markdown file provides examples for designing trials with survival endpoints with rpact. These examples are not intended to replace the official rpact documentation and help pages but rather to supplement them. They also only cover a selection of all rpact features. 
+
+General convention: In rpact, arguments containing the **index "2"** always refer to the **control group**, **"1"** refer to the **intervention group**, and **treatment effects compare treatment versus control**.
+
+# Load rpact package and supplementary Roche-internal functions 
+```{r, include=TRUE, echo=TRUE}
+# Load rpact
+library(rpact)
+packageVersion("rpact") # version should be version 2.0.1 or later
+# Import Roche-internal function on github and load required package knitr 
+# (note: access to github.roche.com is only possible if you are connected to the Roche network)
+source("https://raw.github.roche.com/adaptR/adaptR-tutorials/master/simpleBoundarySummary.R")
+library(knitr)
+```
+# Overview of relevant rpact functions
+
+Sample size calculation for a group-sequential trial with a survival endpoints is performed in **two steps**:
+
+1. **Define the (abstract) group-sequential design** using the function `getDesignGroupSequential`. For details regarding this step, see the R markdown file "Defining group-sequential boundaries with rpact". This step can be omitted if the trial has no interim analyses.
+
+2. **Calculate sample size** for the survival endpoint by feeding the abstract design into function `getSampleSizeSurvival`. This step is described in detail below.
+
+Other relevant rpact functions for survival are:
+
+- `getPowerSurvival`: This function is the analogue to `getSampleSizeSurvival` for the calculation of power rather than sample size.
+- `getEventProbabilities`: Calculates the probability of an event depending on follow-up time. This is useful for aligning interim analyses for different time-to-event endpoints.
+- `getSimulationSurvival`: This function simulates group-sequential trials. For example, it allows to assess the power of trials with delayed treatment effects or to assess the data-dependent variability of the timing of interim analyses even if the protocol assumptions are perfectly fulfilled. It also allows to simulate hypothetical datasets for trials stopped early.
+
+This document describes all functions mentioned above except for trial simulation (`getSimulationSurvival`) which is described in the document "Simulation-based design of group-sequential trials with a survival endpoint with rpact".
+
+However, before describing the functions themselves, the document describes how survival functions, drop-out, and accrual can be specified in rpact which is required for all of these functions.
+
+# Specifying survival distributions in rpact
+
+rpact allows to specify survival distributions with exponential, piecewise exponential, and Weibull distributions. Exponential and piecewise exponential distributions are described below. 
+
+Weibull distributions are specified in the same way as exponential distributions except that an additional scale parameter `kappa` needs to be provided which is 1 for the exponential distribution.  Note that the parameters `shape` and `scale` in the standard R functions for the Weibull distribution in the stats-library (such as `dweibull`) are equivalent to `kappa` and 1/`lambda`, respectively, in rpact.
+
+## Exponential survival distributions
+
+### Event probability at a specific time point known
+- The time point is given by argument `eventTime`.
+- The probability of an event (i.e. 1 minus survival function) in the control group is given by argument `pi2`.
+- The probability of an event in the intervention arm can either be provided explicitly through argument `pi1` or, alternatively, implicitly by specifying the target hazard ratio  `hazardRatio`.
+
+**Example:** If the intervention is expected to improve survival at 24 months from 70% to 80%, this would be expressed through arguments `eventTime=24, pi2=0.3, pi1=0.2`. 
+
+### Exponential parameter $\lambda$ known
+- The constant hazard function in the control arm can be provided as argument `lambda2`. 
+- The hazard in the intervention arm can either be provided explicitly through the argument `lambda1` or, alternatively, implicitly by specifying the target hazard ratio `hazardRatio`.
+
+### Median survival known
+Medians cannot be specified directly. However, one can exploit that the hazard rate $\lambda$ of the exponential distribution is equal to $\lambda=\log(2)/\text{median}$.
+
+**Example:** If the intervention is expected to improve the median survival from 60 to 75 months, this would be expressed through the arguments `lambda2=log(2)/60, lambda1=log(2)/75`. Alternatively, it could be specified via `lambda2=log(2)/60, hazardRatio=0.8` (as the hazard ratio is 60/75=0.8).
+
+## Weibull 
+Weibull distributions are specified in the same way as exponential distributions except that an additional scale parameter `kappa` needs to be provided which is 1 for the exponential distribution. 
+
+
+## Piecewise exponential survival 
+
+### Piecewise constant hazard rate $\lambda$ in each interval known
+**Example:** If the survival function in the control arm is assumed to be 0.03 (events/time-unit of follow-up) for the first 6 months, 0.06 for months 6-12, and 0.02 from month 12 onwards, this can be specified using the argument `piecewiseSurvivalTime` as follows:
+
+``` 
+piecewiseSurvivalTime=list("0 - <6" =0.03,
+                           "6 - <12"=0.06,
+                           ">=12"   =0.02)
+```
+Alternatively, the same distribution can be specified by giving the start times of each interval as argument `piecewiseSurvivalTime` and the actual hazard rate in that interval as argument `lambda2`. I.e., the relevant arguments for this example would be:
+
+``` 
+piecewiseSurvivalTime=c(0,6,12), lambda2=c(0.03,0.06,0.02)
+```
+
+For the intervention arm, one could either explicitly specify the hazard rate in the same time intervals through the argument `lambda1` or, more conveniently, specify the survival function in the intervention arm indirectly via the target hazard ratio (argument `hazardRatio`).
+
+Note: The sample size calculation functions discussed in this document **assume that the proportional hazards assumption holds**, i.e., that `lambda1` and `lambda2` are proportional if both are provided. Otherwise, the function call to `getSampleSizeSurvival` gives an error. For situations with non-proportional hazards, please see the separate document which discusses the simulation tool using the function `getSimulationSurvival`.
+
+### Survival function at different time points known 
+Piecewise exponential distribution are useful to **approximate survival functions**. 
+In principle, it is possible to approximate any distribution function well with a piecewise exponential distribution if suitably narrow intervals are chosen.
+
+Assume that the survival function is $S(t_1)$ at time $t_1$ and $S(t_2)$ at time $t_2$ with $t_2>t_1$ and that the hazard rate in the interval $[t_1,t_2]$ is constant. Then, the hazard rate in the interval can be derived as $(\log(S(t_1))-\log(S(t_2)))/(t_2-t_1)$. 
+
+**Example:** Assume that it is known that the survival function is 1, 0.9, 0.7, and 0.5 at months 0, 12, 24, 48 in the control arm. Then, an interpolating piecewise exponential distribution can be derived as follows:
+```{r, include=TRUE, echo=TRUE}
+t <- c(0,12,24,48) # time points at which survival function is known (must include 0)
+S <- c(1,0.9,0.7,0.5) # Survival function at timepoints t
+# derive hazard in each intervals per the formula above
+lambda <- -diff(log(S))/diff(t)
+# Define parameters for piecewise exponential distribution in the control arm 
+# interpolating the targeted survival values
+# (code for lambda1 below assumes that the hazard afer month 48 is 
+#  identical to the hazard in interval [24,48])
+piecewiseSurvivalTime <- t
+lambda2 <- c(lambda,tail(lambda,n=1))
+lambda2 # print hazard rates 
+```
+
+### Appendix: Random numbers, cumulative distribution, and quantiles for the piecewise exponential distribution {.unnumbered}
+rpact also provides general functionality for the piecewise exponential distribution, see `?piecewiseExponentialDistribution` for details. Below is some example code which shows that the derivation of the piecewise exponential distribution in the previous example is correct.
+```{r, include=TRUE, echo=TRUE}
+# plot the piecewise exponential survival distribution from the example above
+tp <- seq(0,72,by=0.01) 
+plot(tp,
+     1-getPiecewiseExponentialDistribution(time=tp,
+                                           piecewiseSurvivalTime = piecewiseSurvivalTime,
+                                           piecewiseLambda = lambda2),
+     type="l",xlab="Time (months)",ylab="Survival function S(t)",lwd=2,ylim=c(0,1),axes=F,
+     main="Piecewise exponential distribution for the example")
+axis(1,at=seq(0,72,by=12)); axis(2,at=seq(0,1,by=0.1))
+abline(v=seq(0,72,by=12),h=seq(0,1,by=0.1),col=gray(0.9))
+# Calculate median survival for the example (which should give 48 months here)
+getPiecewiseExponentialQuantile(0.5,piecewiseSurvivalTime = piecewiseSurvivalTime,
+                                    piecewiseLambda = lambda2)
+
+```
+
