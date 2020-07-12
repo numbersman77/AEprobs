@@ -1,6 +1,6 @@
 ---
 title: "SAVVY: estimation of AE probabilities"
-author: "Kaspar Rufibach, on behalf of the SAVVY working group"
+author: "Regina Stegherr and Kaspar Rufibach, on behalf of the SAVVY working group"
 date: "Last change: `r format(Sys.time(), '%d %B, %Y')`"
 output: 
   rmarkdown::html_document:
