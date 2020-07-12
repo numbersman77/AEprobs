@@ -1,6 +1,6 @@
 # SAVVY: estimation of AE probabilities
 
-* [Computation of AE probabilities](SAVVY_AEprobs.html)
+* [Computation of AE probabilities](https://numbersman77.github.io/AEprobs/SAVVY_AEprobs.html)
 
 Authors: 
 
