@@ -10,53 +10,210 @@ output:
     toc: yes
     toc_depth: 3
     toc_float: yes
+bibliography: biblio.bib
 ---
 
-This R markdown file provides the code accompanying the slide deck [Efficient use of futility and efficacy interim analyses in group-sequential designs](Toolbox1_Rufibach_Wolbers_EfficientInterimsBiostatistics.pdf) within the course [A toolbox for innovative confirmatory trial designs](https://go.roche.com/adaptr/toolbox.html).
+# Purpose of this document
 
-# Setup
+The assessment of safety is an important aspect of the evaluation of new therapies in clinical trials, with analyses of adverse events being an essential part of this. Standard methods for the analysis of adverse events such as the incidence proportion, i.e. the number of patients with a specific adverse event out of all patients in the treatment groups, do not account for both varying follow-up times and competing risks. Alternative approaches such as the Aalen-Johansen estimator of the cumulative incidence function have been suggested. Theoretical arguments and numerical evaluations support the application of these more advanced methodology, but as yet there is to our knowledge only insufficient empirical evidence whether these methods would lead to different conclusions in safety evaluations. The Survival analysis for AdVerse events with VarYing follow-up times (SAVVY) project strives to close this gap in evidence by conducting a meta-analytical study to assess the impact of the methodology on the conclusion of the safety assessment empirically. Three papers are currently under review summarizing the rationale and results of the project: 
 
-Load rpact and further packages and define shortcut for sample size function.
+* @stegherr_19survival: statistical analysis plan, presenting the rationale and statistical concept of the empirical study conducted as part of the SAVVY project. The statistical methods are presented in unified notation and examples of their implementation in R and SAS are provided.
+* @stegherr_20_1sample: 1-sample case, compares estimators of AE probabilities in one treatment arm,
+* @rufibach_20_savvy: 2-sample case, compares relative risk estimators comparing two treatment arms based on (1) AE probabilities and (2) hazards.
+
+This R markdown file provides easy accessible code to compute all the estimators for AE probabilities that are compared to each other in these papers.
+
+# Setup {.tabset .tabset-fade .tabset-pills}
+
+## Packages
 
 ```{r, include=TRUE, echo=TRUE}
-# Load rpact
-library(rpact)
-library(knitr)
+# --------------------------------------------------------------
+# packages
+# --------------------------------------------------------------
+packs <- c("data.table", "etm", "survival", "mvna")    
+for (i in 1:length(packs)){library(packs[i], character.only = TRUE)}
+```
 
-# shortcut for sample size function, to streamline code
-myGetSampleSizeSurvival <- function(design){
-    tmp <- getSampleSizeSurvival(design = design,
-                        lambda2 = log(2) / m1, hazardRatio = hr,
-                        dropoutRate1 = dout1, dropoutRate2 = dout2, dropoutTime = douttime,
-                        accrualTime = accrualTime, accrualIntensity = accrualIntensity,
-                        maxNumberOfSubjects = maxNumberOfSubjects)  
-    return(tmp)
+## Functions
+
+```{r, include=TRUE, echo=TRUE}
+# --------------------------------------------------------------
+# functions
+# --------------------------------------------------------------
+data_generation_constant_cens <- function(N, min.cens, max.cens.A, haz.AE, haz.death,
+                                          haz.soft, seed = 57 * i + 5){
+  
+  # status, 1 for AE, 2 for death 3 for soft competing event
+  set.seed(seed)
+  haz.all <- haz.AE + haz.death + haz.soft
+
+  ## group A
+  my.data <- data.table(time_to_event = rep(0, N), type_of_event = rep(0, N))
+  my.data$time_to_event<- rexp(n = N, rate = haz.all) # event time
+  my.data$type_of_event <- rbinom(n = N, size = 2, 
+                                  prob = c(haz.AE / haz.all, haz.death / haz.all, haz.soft / haz.all)) + 1
+                                  # status, 1 for AE, 2 for death 3 for soft competing event
+  my.data$trt_group <- "A"
+  my.data$cens <- runif(n = N, min = min.cens, max = max.cens)
+  my.data$type_of_event <- as.numeric(my.data$time_to_event <= my.data$cens) * my.data$type_of_event
+  my.data$time_to_event <- pmin(my.data$time_to_event, my.data$cens)
+  my.data$id <- 1:N
+
+  my.data <- my.data
+  my.data[, ae_id := 1]
+  return(my.data)
+}
+
+incidenceProportion <- function(data, tau){
+
+  ae <- nrow(data[type_of_event == 1 & time_to_event <= tau]) / nrow(data)
+  ae_prob_var <- ae * (1 - ae) / nrow(data)
+
+  res <- c("ae_prob" = ae, "ae_prob_var" = ae_prob_var)
+  return(res)
+}
+
+probTransIncidenceDensity <- function(data, tau){
+
+  time <- data$time_to_event
+  incidence.dens <- nrow(data[type_of_event == 1 & time_to_event <= tau]) / sum(ifelse(time <= tau, time, tau))
+  ae <- 1 - exp(-incidence.dens * tau)
+
+  var_A_var <- nrow(data[type_of_event == 1 & time_to_event <= tau]) / sum(ifelse(time <= tau, time, tau)) ^ 2
+  ae_var <- exp(-incidence.dens * tau) ^ 2 * var_A_var * tau ^ 2
+
+  res <- c("ae_prob" = ae, "ae_prob_var" = ae_var)
+  return(res)
+}
+
+oneMinusKaplanMeier <- function(data, tau){
+
+  if(nrow(data[type_of_event == 1]) == 0){
+    ae_prob <- 0
+    ae_prob_var <- 0
+  }
+
+  if(nrow(data[type_of_event == 1]) > 0){
+    help <- data.frame(id = data$id)
+    help$from <- 0
+    help$to <- ifelse(data$type_of_event != 1, "cens", data$type_of_event)
+    help$time <-ifelse(data$time_to_event == 0, 0.001, data$time_to_event)
+
+    tra <- matrix(FALSE, 2, 2)
+    tra[1, 2] <- TRUE
+    state.names <-as.character(0:1)
+    etmmm <-etm(help, state.names, tra, "cens", s = 0)
+
+    ae_prob <- summary(etmmm)[[2]][sum(summary(etmmm)[[2]]$time <= tau),]$P
+    ae_prob_var <- summary(etmmm)[[2]][sum(summary(etmmm)[[2]]$time <= tau),]$var
+  }
+
+  res <- c("ae" = ae_prob, "ae_var" = ae_prob_var)
+  return(res)
+}
+
+AJE <- function(data, CE, tau){
+
+  data[, type_of_event2 := ifelse(CE == 2 & data$type_of_event == 3, 0, ifelse(CE == 3 & data$type_of_event == 3, 2, type_of_event))]
+  time <- data$time_to_event
+  type2 <- data$type_of_event2
+  
+  # conditions
+  c1 <- nrow(data[type_of_event2 == 1])
+  c2 <- nrow(data[type_of_event2 == 2])
+  
+  if(c1 == 0){
+   ae_prob <- 0
+   ae_prob_var <- 0
+  }
+
+  if(c2 == 0){
+    ce_prob <- 0
+    ce_prob_var <- 0
+  }
+
+  # define auxiliary objects
+  help <- data.frame(id = data$id)
+  help$from <- 0
+  help$time <-ifelse(time == 0, 0.001, time)
+  tra <- matrix(FALSE, 2, 2)
+  tra[1, 2] <- TRUE
+  state.names <- as.character(0:1)
+  
+  if(c1 == 0 & c2 != 0){
+    help$to <- ifelse(type2 != 2, "cens", type2 - 1)
+    etmmm <- etm(help, state.names, tra, "cens", s = 0)
+    setmm <- summary(etmmm)[[2]]
+    ce_prob <- setmm[sum(setmm$time <= tau),]$P
+    ce_prob_var <- setmm[sum(setmm$time <= tau),]$var
+  }
+
+  if(c1 != 0 & c2 == 0){
+    help$to <- ifelse(type2 != 1, "cens", type2)
+    etmmm <- etm(help, state.names, tra, "cens", s = 0)
+    setmm <- summary(etmmm)[[2]]
+   
+    ae_prob <- setmm[sum(setmm$time <= tau),]$P
+    ae_prob_var <- setmm[sum(setmm$time <= tau),]$var
+  }
+
+  if(c1 != 0 & c2 != 0){
+    help$to <- ifelse(!(type2 %in% c(1, 2)),"cens", type2)
+
+    tra <- matrix(FALSE, 3, 3)
+    tra[1, 2:3] <- TRUE
+    state.names <- as.character(0:2)
+    etmmm <- etm(help, state.names, tra, "cens", s = 0)
+    setmm <- summary(etmmm)
+   
+    ae_prob <- setmm[[2]][sum(setmm[[2]]$time <= tau),]$P
+    ae_prob_var <- setmm[[2]][sum(setmm[[2]]$time <= tau),]$var
+
+    ce_prob <- setmm[[3]][sum(setmm[[3]]$time <= tau),]$P
+    ce_prob_var <- setmm[[3]][sum(setmm[[3]]$time <= tau),]$var
+  }
+
+  res_ae <- c("ae_prob" = ae_prob, "ae_prob_var" = ae_prob_var)
+  res_ce <- c("ce_prob" = ce_prob, "ce_prob_var" = ce_prob_var)
+  
+  res <- rbind(res_ae, res_ce)
+  return(res)
 }
 ```
 
-# Specify details of example trial
+
+# Exemplary estimation of AE probabilities
+
 ```{r, include=TRUE, echo=TRUE}
-# design parameters
-alpha <- 0.05
-beta <- 0.2
-m1 <- 6 * 12
-m2 <- 8 * 12
-hr <- m1 / m2
 
-# constant for computation of variance for log(hr)
-# as a function of P(randomized to A)
-pA <- 1 / 2     # 1:1 randomization
-kappa <- (pA * (1 - pA)) ^ (-1)
+# parameters of dataset
+N <- 200
+max.cens <- 1000
+min.cens <- 0
 
-# timing parameters
-dout1 <- 0.025
-dout2 <- 0.025
-douttime <- 12
-accrualTime <- 0:6
-accrualIntensity <- seq(6, 42, by = 6)
-maxNumberOfSubjects <- 1200
+haz.AE <- 0.00265
+haz.death <- 0.00151
+haz.soft <- 0.00227
 
-# informal futility boundary
-inform_bound <- 1
+# generate dataset
+dat1 <- data_generation_constant_cens(N, min.cens, max.cens, haz.AE, haz.death, haz.soft, seed = 2020)
+tau <- max(dat1[, "time_to_event"])
+
+# compute each estimator
+IP <- incidenceProportion(dat1, tau)
+ID <- probTransIncidenceDensity(dat1, tau)
+KM <- oneMinusKaplanMeier(dat1, tau)
+AJ2 <- AJE(dat1, CE = 2, tau)
+AJ3 <- AJE(dat1, CE = 3, tau)
+
+# values of estimators  
+IP
+ID
+KM
+AJ2
+AJ3
 ```
 
+
+# References

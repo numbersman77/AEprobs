@@ -1605,48 +1605,226 @@ div.tocify {
 </div>
 
 
-<p>This R markdown file provides the code accompanying the slide deck <a href="Toolbox1_Rufibach_Wolbers_EfficientInterimsBiostatistics.pdf">Efficient use of futility and efficacy interim analyses in group-sequential designs</a> within the course <a href="https://go.roche.com/adaptr/toolbox.html">A toolbox for innovative confirmatory trial designs</a>.</p>
-<div id="setup" class="section level1">
-<h1><span class="header-section-number">1</span> Setup</h1>
-<p>Load rpact and further packages and define shortcut for sample size function.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="co"># Load rpact</span></a>
-<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="kw">library</span>(rpact)</a>
-<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">library</span>(knitr)</a>
-<a class="sourceLine" id="cb1-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb1-5" data-line-number="5"><span class="co"># shortcut for sample size function, to streamline code</span></a>
-<a class="sourceLine" id="cb1-6" data-line-number="6">myGetSampleSizeSurvival &lt;-<span class="st"> </span><span class="cf">function</span>(design){</a>
-<a class="sourceLine" id="cb1-7" data-line-number="7">    tmp &lt;-<span class="st"> </span><span class="kw">getSampleSizeSurvival</span>(<span class="dt">design =</span> design,</a>
-<a class="sourceLine" id="cb1-8" data-line-number="8">                        <span class="dt">lambda2 =</span> <span class="kw">log</span>(<span class="dv">2</span>) <span class="op">/</span><span class="st"> </span>m1, <span class="dt">hazardRatio =</span> hr,</a>
-<a class="sourceLine" id="cb1-9" data-line-number="9">                        <span class="dt">dropoutRate1 =</span> dout1, <span class="dt">dropoutRate2 =</span> dout2, <span class="dt">dropoutTime =</span> douttime,</a>
-<a class="sourceLine" id="cb1-10" data-line-number="10">                        <span class="dt">accrualTime =</span> accrualTime, <span class="dt">accrualIntensity =</span> accrualIntensity,</a>
-<a class="sourceLine" id="cb1-11" data-line-number="11">                        <span class="dt">maxNumberOfSubjects =</span> maxNumberOfSubjects)  </a>
-<a class="sourceLine" id="cb1-12" data-line-number="12">    <span class="kw">return</span>(tmp)</a>
-<a class="sourceLine" id="cb1-13" data-line-number="13">}</a></code></pre></div>
+<div id="purpose-of-this-document" class="section level1">
+<h1><span class="header-section-number">1</span> Purpose of this document</h1>
+<p>The assessment of safety is an important aspect of the evaluation of new therapies in clinical trials, with analyses of adverse events being an essential part of this. Standard methods for the analysis of adverse events such as the incidence proportion, i.e. the number of patients with a specific adverse event out of all patients in the treatment groups, do not account for both varying follow-up times and competing risks. Alternative approaches such as the Aalen-Johansen estimator of the cumulative incidence function have been suggested. Theoretical arguments and numerical evaluations support the application of these more advanced methodology, but as yet there is to our knowledge only insufficient empirical evidence whether these methods would lead to different conclusions in safety evaluations. The Survival analysis for AdVerse events with VarYing follow-up times (SAVVY) project strives to close this gap in evidence by conducting a meta-analytical study to assess the impact of the methodology on the conclusion of the safety assessment empirically. Three papers are currently under review summarizing the rationale and results of the project:</p>
+<ul>
+<li><span class="citation">Stegherr et al. (2019)</span>: statistical analysis plan, presenting the rationale and statistical concept of the empirical study conducted as part of the SAVVY project. The statistical methods are presented in unified notation and examples of their implementation in R and SAS are provided.</li>
+<li><span class="citation">Stegherr et al. (2020)</span>: 1-sample case, compares estimators of AE probabilities in one treatment arm,</li>
+<li><span class="citation">Rufibach et al. (2020)</span>: 2-sample case, compares relative risk estimators comparing two treatment arms based on (1) AE probabilities and (2) hazards.</li>
+</ul>
+<p>This R markdown file provides easy accessible code to compute all the estimators for AE probabilities that are compared to each other in these papers.</p>
 </div>
-<div id="specify-details-of-example-trial" class="section level1">
-<h1><span class="header-section-number">2</span> Specify details of example trial</h1>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="co"># design parameters</span></a>
-<a class="sourceLine" id="cb2-2" data-line-number="2">alpha &lt;-<span class="st"> </span><span class="fl">0.05</span></a>
-<a class="sourceLine" id="cb2-3" data-line-number="3">beta &lt;-<span class="st"> </span><span class="fl">0.2</span></a>
-<a class="sourceLine" id="cb2-4" data-line-number="4">m1 &lt;-<span class="st"> </span><span class="dv">6</span> <span class="op">*</span><span class="st"> </span><span class="dv">12</span></a>
-<a class="sourceLine" id="cb2-5" data-line-number="5">m2 &lt;-<span class="st"> </span><span class="dv">8</span> <span class="op">*</span><span class="st"> </span><span class="dv">12</span></a>
-<a class="sourceLine" id="cb2-6" data-line-number="6">hr &lt;-<span class="st"> </span>m1 <span class="op">/</span><span class="st"> </span>m2</a>
-<a class="sourceLine" id="cb2-7" data-line-number="7"></a>
-<a class="sourceLine" id="cb2-8" data-line-number="8"><span class="co"># constant for computation of variance for log(hr)</span></a>
-<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="co"># as a function of P(randomized to A)</span></a>
-<a class="sourceLine" id="cb2-10" data-line-number="10">pA &lt;-<span class="st"> </span><span class="dv">1</span> <span class="op">/</span><span class="st"> </span><span class="dv">2</span>     <span class="co"># 1:1 randomization</span></a>
-<a class="sourceLine" id="cb2-11" data-line-number="11">kappa &lt;-<span class="st"> </span>(pA <span class="op">*</span><span class="st"> </span>(<span class="dv">1</span> <span class="op">-</span><span class="st"> </span>pA)) <span class="op">^</span><span class="st"> </span>(<span class="op">-</span><span class="dv">1</span>)</a>
-<a class="sourceLine" id="cb2-12" data-line-number="12"></a>
-<a class="sourceLine" id="cb2-13" data-line-number="13"><span class="co"># timing parameters</span></a>
-<a class="sourceLine" id="cb2-14" data-line-number="14">dout1 &lt;-<span class="st"> </span><span class="fl">0.025</span></a>
-<a class="sourceLine" id="cb2-15" data-line-number="15">dout2 &lt;-<span class="st"> </span><span class="fl">0.025</span></a>
-<a class="sourceLine" id="cb2-16" data-line-number="16">douttime &lt;-<span class="st"> </span><span class="dv">12</span></a>
-<a class="sourceLine" id="cb2-17" data-line-number="17">accrualTime &lt;-<span class="st"> </span><span class="dv">0</span><span class="op">:</span><span class="dv">6</span></a>
-<a class="sourceLine" id="cb2-18" data-line-number="18">accrualIntensity &lt;-<span class="st"> </span><span class="kw">seq</span>(<span class="dv">6</span>, <span class="dv">42</span>, <span class="dt">by =</span> <span class="dv">6</span>)</a>
-<a class="sourceLine" id="cb2-19" data-line-number="19">maxNumberOfSubjects &lt;-<span class="st"> </span><span class="dv">1200</span></a>
-<a class="sourceLine" id="cb2-20" data-line-number="20"></a>
-<a class="sourceLine" id="cb2-21" data-line-number="21"><span class="co"># informal futility boundary</span></a>
-<a class="sourceLine" id="cb2-22" data-line-number="22">inform_bound &lt;-<span class="st"> </span><span class="dv">1</span></a></code></pre></div>
+<div id="setup" class="section level1 tabset tabset-fade tabset-pills">
+<h1><span class="header-section-number">2</span> Setup</h1>
+<div id="packages" class="section level2">
+<h2><span class="header-section-number">2.1</span> Packages</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="co"># --------------------------------------------------------------</span></a>
+<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="co"># packages</span></a>
+<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="co"># --------------------------------------------------------------</span></a>
+<a class="sourceLine" id="cb1-4" data-line-number="4">packs &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;data.table&quot;</span>, <span class="st">&quot;etm&quot;</span>, <span class="st">&quot;survival&quot;</span>, <span class="st">&quot;mvna&quot;</span>)    </a>
+<a class="sourceLine" id="cb1-5" data-line-number="5"><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="op">:</span><span class="kw">length</span>(packs)){<span class="kw">library</span>(packs[i], <span class="dt">character.only =</span> <span class="ot">TRUE</span>)}</a></code></pre></div>
+</div>
+<div id="functions" class="section level2">
+<h2><span class="header-section-number">2.2</span> Functions</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="co"># --------------------------------------------------------------</span></a>
+<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="co"># functions</span></a>
+<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="co"># --------------------------------------------------------------</span></a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">data_generation_constant_cens &lt;-<span class="st"> </span><span class="cf">function</span>(N, min.cens, max.cens.A, haz.AE, haz.death,</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5">                                          haz.soft, <span class="dt">seed =</span> <span class="dv">57</span> <span class="op">*</span><span class="st"> </span>i <span class="op">+</span><span class="st"> </span><span class="dv">5</span>){</a>
+<a class="sourceLine" id="cb2-6" data-line-number="6">  </a>
+<a class="sourceLine" id="cb2-7" data-line-number="7">  <span class="co"># status, 1 for AE, 2 for death 3 for soft competing event</span></a>
+<a class="sourceLine" id="cb2-8" data-line-number="8">  <span class="kw">set.seed</span>(seed)</a>
+<a class="sourceLine" id="cb2-9" data-line-number="9">  haz.all &lt;-<span class="st"> </span>haz.AE <span class="op">+</span><span class="st"> </span>haz.death <span class="op">+</span><span class="st"> </span>haz.soft</a>
+<a class="sourceLine" id="cb2-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb2-11" data-line-number="11">  <span class="co">## group A</span></a>
+<a class="sourceLine" id="cb2-12" data-line-number="12">  my.data &lt;-<span class="st"> </span><span class="kw">data.table</span>(<span class="dt">time_to_event =</span> <span class="kw">rep</span>(<span class="dv">0</span>, N), <span class="dt">type_of_event =</span> <span class="kw">rep</span>(<span class="dv">0</span>, N))</a>
+<a class="sourceLine" id="cb2-13" data-line-number="13">  my.data<span class="op">$</span>time_to_event&lt;-<span class="st"> </span><span class="kw">rexp</span>(<span class="dt">n =</span> N, <span class="dt">rate =</span> haz.all) <span class="co"># event time</span></a>
+<a class="sourceLine" id="cb2-14" data-line-number="14">  my.data<span class="op">$</span>type_of_event &lt;-<span class="st"> </span><span class="kw">rbinom</span>(<span class="dt">n =</span> N, <span class="dt">size =</span> <span class="dv">2</span>, </a>
+<a class="sourceLine" id="cb2-15" data-line-number="15">                                  <span class="dt">prob =</span> <span class="kw">c</span>(haz.AE <span class="op">/</span><span class="st"> </span>haz.all, haz.death <span class="op">/</span><span class="st"> </span>haz.all, haz.soft <span class="op">/</span><span class="st"> </span>haz.all)) <span class="op">+</span><span class="st"> </span><span class="dv">1</span></a>
+<a class="sourceLine" id="cb2-16" data-line-number="16">                                  <span class="co"># status, 1 for AE, 2 for death 3 for soft competing event</span></a>
+<a class="sourceLine" id="cb2-17" data-line-number="17">  my.data<span class="op">$</span>trt_group &lt;-<span class="st"> &quot;A&quot;</span></a>
+<a class="sourceLine" id="cb2-18" data-line-number="18">  my.data<span class="op">$</span>cens &lt;-<span class="st"> </span><span class="kw">runif</span>(<span class="dt">n =</span> N, <span class="dt">min =</span> min.cens, <span class="dt">max =</span> max.cens)</a>
+<a class="sourceLine" id="cb2-19" data-line-number="19">  my.data<span class="op">$</span>type_of_event &lt;-<span class="st"> </span><span class="kw">as.numeric</span>(my.data<span class="op">$</span>time_to_event <span class="op">&lt;=</span><span class="st"> </span>my.data<span class="op">$</span>cens) <span class="op">*</span><span class="st"> </span>my.data<span class="op">$</span>type_of_event</a>
+<a class="sourceLine" id="cb2-20" data-line-number="20">  my.data<span class="op">$</span>time_to_event &lt;-<span class="st"> </span><span class="kw">pmin</span>(my.data<span class="op">$</span>time_to_event, my.data<span class="op">$</span>cens)</a>
+<a class="sourceLine" id="cb2-21" data-line-number="21">  my.data<span class="op">$</span>id &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">:</span>N</a>
+<a class="sourceLine" id="cb2-22" data-line-number="22"></a>
+<a class="sourceLine" id="cb2-23" data-line-number="23">  my.data &lt;-<span class="st"> </span>my.data</a>
+<a class="sourceLine" id="cb2-24" data-line-number="24">  my.data[, ae_id <span class="op">:</span><span class="er">=</span><span class="st"> </span><span class="dv">1</span>]</a>
+<a class="sourceLine" id="cb2-25" data-line-number="25">  <span class="kw">return</span>(my.data)</a>
+<a class="sourceLine" id="cb2-26" data-line-number="26">}</a>
+<a class="sourceLine" id="cb2-27" data-line-number="27"></a>
+<a class="sourceLine" id="cb2-28" data-line-number="28">incidenceProportion &lt;-<span class="st"> </span><span class="cf">function</span>(data, tau){</a>
+<a class="sourceLine" id="cb2-29" data-line-number="29"></a>
+<a class="sourceLine" id="cb2-30" data-line-number="30">  ae &lt;-<span class="st"> </span><span class="kw">nrow</span>(data[type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">1</span> <span class="op">&amp;</span><span class="st"> </span>time_to_event <span class="op">&lt;=</span><span class="st"> </span>tau]) <span class="op">/</span><span class="st"> </span><span class="kw">nrow</span>(data)</a>
+<a class="sourceLine" id="cb2-31" data-line-number="31">  ae_prob_var &lt;-<span class="st"> </span>ae <span class="op">*</span><span class="st"> </span>(<span class="dv">1</span> <span class="op">-</span><span class="st"> </span>ae) <span class="op">/</span><span class="st"> </span><span class="kw">nrow</span>(data)</a>
+<a class="sourceLine" id="cb2-32" data-line-number="32"></a>
+<a class="sourceLine" id="cb2-33" data-line-number="33">  res &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;ae_prob&quot;</span> =<span class="st"> </span>ae, <span class="st">&quot;ae_prob_var&quot;</span> =<span class="st"> </span>ae_prob_var)</a>
+<a class="sourceLine" id="cb2-34" data-line-number="34">  <span class="kw">return</span>(res)</a>
+<a class="sourceLine" id="cb2-35" data-line-number="35">}</a>
+<a class="sourceLine" id="cb2-36" data-line-number="36"></a>
+<a class="sourceLine" id="cb2-37" data-line-number="37">probTransIncidenceDensity &lt;-<span class="st"> </span><span class="cf">function</span>(data, tau){</a>
+<a class="sourceLine" id="cb2-38" data-line-number="38"></a>
+<a class="sourceLine" id="cb2-39" data-line-number="39">  time &lt;-<span class="st"> </span>data<span class="op">$</span>time_to_event</a>
+<a class="sourceLine" id="cb2-40" data-line-number="40">  incidence.dens &lt;-<span class="st"> </span><span class="kw">nrow</span>(data[type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">1</span> <span class="op">&amp;</span><span class="st"> </span>time_to_event <span class="op">&lt;=</span><span class="st"> </span>tau]) <span class="op">/</span><span class="st"> </span><span class="kw">sum</span>(<span class="kw">ifelse</span>(time <span class="op">&lt;=</span><span class="st"> </span>tau, time, tau))</a>
+<a class="sourceLine" id="cb2-41" data-line-number="41">  ae &lt;-<span class="st"> </span><span class="dv">1</span> <span class="op">-</span><span class="st"> </span><span class="kw">exp</span>(<span class="op">-</span>incidence.dens <span class="op">*</span><span class="st"> </span>tau)</a>
+<a class="sourceLine" id="cb2-42" data-line-number="42"></a>
+<a class="sourceLine" id="cb2-43" data-line-number="43">  var_A_var &lt;-<span class="st"> </span><span class="kw">nrow</span>(data[type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">1</span> <span class="op">&amp;</span><span class="st"> </span>time_to_event <span class="op">&lt;=</span><span class="st"> </span>tau]) <span class="op">/</span><span class="st"> </span><span class="kw">sum</span>(<span class="kw">ifelse</span>(time <span class="op">&lt;=</span><span class="st"> </span>tau, time, tau)) <span class="op">^</span><span class="st"> </span><span class="dv">2</span></a>
+<a class="sourceLine" id="cb2-44" data-line-number="44">  ae_var &lt;-<span class="st"> </span><span class="kw">exp</span>(<span class="op">-</span>incidence.dens <span class="op">*</span><span class="st"> </span>tau) <span class="op">^</span><span class="st"> </span><span class="dv">2</span> <span class="op">*</span><span class="st"> </span>var_A_var <span class="op">*</span><span class="st"> </span>tau <span class="op">^</span><span class="st"> </span><span class="dv">2</span></a>
+<a class="sourceLine" id="cb2-45" data-line-number="45"></a>
+<a class="sourceLine" id="cb2-46" data-line-number="46">  res &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;ae_prob&quot;</span> =<span class="st"> </span>ae, <span class="st">&quot;ae_prob_var&quot;</span> =<span class="st"> </span>ae_var)</a>
+<a class="sourceLine" id="cb2-47" data-line-number="47">  <span class="kw">return</span>(res)</a>
+<a class="sourceLine" id="cb2-48" data-line-number="48">}</a>
+<a class="sourceLine" id="cb2-49" data-line-number="49"></a>
+<a class="sourceLine" id="cb2-50" data-line-number="50">oneMinusKaplanMeier &lt;-<span class="st"> </span><span class="cf">function</span>(data, tau){</a>
+<a class="sourceLine" id="cb2-51" data-line-number="51"></a>
+<a class="sourceLine" id="cb2-52" data-line-number="52">  <span class="cf">if</span>(<span class="kw">nrow</span>(data[type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">1</span>]) <span class="op">==</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-53" data-line-number="53">    ae_prob &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-54" data-line-number="54">    ae_prob_var &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-55" data-line-number="55">  }</a>
+<a class="sourceLine" id="cb2-56" data-line-number="56"></a>
+<a class="sourceLine" id="cb2-57" data-line-number="57">  <span class="cf">if</span>(<span class="kw">nrow</span>(data[type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">1</span>]) <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-58" data-line-number="58">    help &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">id =</span> data<span class="op">$</span>id)</a>
+<a class="sourceLine" id="cb2-59" data-line-number="59">    help<span class="op">$</span>from &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-60" data-line-number="60">    help<span class="op">$</span>to &lt;-<span class="st"> </span><span class="kw">ifelse</span>(data<span class="op">$</span>type_of_event <span class="op">!=</span><span class="st"> </span><span class="dv">1</span>, <span class="st">&quot;cens&quot;</span>, data<span class="op">$</span>type_of_event)</a>
+<a class="sourceLine" id="cb2-61" data-line-number="61">    help<span class="op">$</span>time &lt;-<span class="kw">ifelse</span>(data<span class="op">$</span>time_to_event <span class="op">==</span><span class="st"> </span><span class="dv">0</span>, <span class="fl">0.001</span>, data<span class="op">$</span>time_to_event)</a>
+<a class="sourceLine" id="cb2-62" data-line-number="62"></a>
+<a class="sourceLine" id="cb2-63" data-line-number="63">    tra &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">FALSE</span>, <span class="dv">2</span>, <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb2-64" data-line-number="64">    tra[<span class="dv">1</span>, <span class="dv">2</span>] &lt;-<span class="st"> </span><span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb2-65" data-line-number="65">    state.names &lt;-<span class="kw">as.character</span>(<span class="dv">0</span><span class="op">:</span><span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb2-66" data-line-number="66">    etmmm &lt;-<span class="kw">etm</span>(help, state.names, tra, <span class="st">&quot;cens&quot;</span>, <span class="dt">s =</span> <span class="dv">0</span>)</a>
+<a class="sourceLine" id="cb2-67" data-line-number="67"></a>
+<a class="sourceLine" id="cb2-68" data-line-number="68">    ae_prob &lt;-<span class="st"> </span><span class="kw">summary</span>(etmmm)[[<span class="dv">2</span>]][<span class="kw">sum</span>(<span class="kw">summary</span>(etmmm)[[<span class="dv">2</span>]]<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>P</a>
+<a class="sourceLine" id="cb2-69" data-line-number="69">    ae_prob_var &lt;-<span class="st"> </span><span class="kw">summary</span>(etmmm)[[<span class="dv">2</span>]][<span class="kw">sum</span>(<span class="kw">summary</span>(etmmm)[[<span class="dv">2</span>]]<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>var</a>
+<a class="sourceLine" id="cb2-70" data-line-number="70">  }</a>
+<a class="sourceLine" id="cb2-71" data-line-number="71"></a>
+<a class="sourceLine" id="cb2-72" data-line-number="72">  res &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;ae&quot;</span> =<span class="st"> </span>ae_prob, <span class="st">&quot;ae_var&quot;</span> =<span class="st"> </span>ae_prob_var)</a>
+<a class="sourceLine" id="cb2-73" data-line-number="73">  <span class="kw">return</span>(res)</a>
+<a class="sourceLine" id="cb2-74" data-line-number="74">}</a>
+<a class="sourceLine" id="cb2-75" data-line-number="75"></a>
+<a class="sourceLine" id="cb2-76" data-line-number="76">AJE &lt;-<span class="st"> </span><span class="cf">function</span>(data, CE, tau){</a>
+<a class="sourceLine" id="cb2-77" data-line-number="77"></a>
+<a class="sourceLine" id="cb2-78" data-line-number="78">  data[, type_of_event2 <span class="op">:</span><span class="er">=</span><span class="st"> </span><span class="kw">ifelse</span>(CE <span class="op">==</span><span class="st"> </span><span class="dv">2</span> <span class="op">&amp;</span><span class="st"> </span>data<span class="op">$</span>type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">3</span>, <span class="dv">0</span>, <span class="kw">ifelse</span>(CE <span class="op">==</span><span class="st"> </span><span class="dv">3</span> <span class="op">&amp;</span><span class="st"> </span>data<span class="op">$</span>type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">3</span>, <span class="dv">2</span>, type_of_event))]</a>
+<a class="sourceLine" id="cb2-79" data-line-number="79">  time &lt;-<span class="st"> </span>data<span class="op">$</span>time_to_event</a>
+<a class="sourceLine" id="cb2-80" data-line-number="80">  type2 &lt;-<span class="st"> </span>data<span class="op">$</span>type_of_event2</a>
+<a class="sourceLine" id="cb2-81" data-line-number="81">  </a>
+<a class="sourceLine" id="cb2-82" data-line-number="82">  <span class="co"># conditions</span></a>
+<a class="sourceLine" id="cb2-83" data-line-number="83">  c1 &lt;-<span class="st"> </span><span class="kw">nrow</span>(data[type_of_event2 <span class="op">==</span><span class="st"> </span><span class="dv">1</span>])</a>
+<a class="sourceLine" id="cb2-84" data-line-number="84">  c2 &lt;-<span class="st"> </span><span class="kw">nrow</span>(data[type_of_event2 <span class="op">==</span><span class="st"> </span><span class="dv">2</span>])</a>
+<a class="sourceLine" id="cb2-85" data-line-number="85">  </a>
+<a class="sourceLine" id="cb2-86" data-line-number="86">  <span class="cf">if</span>(c1 <span class="op">==</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-87" data-line-number="87">   ae_prob &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-88" data-line-number="88">   ae_prob_var &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-89" data-line-number="89">  }</a>
+<a class="sourceLine" id="cb2-90" data-line-number="90"></a>
+<a class="sourceLine" id="cb2-91" data-line-number="91">  <span class="cf">if</span>(c2 <span class="op">==</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-92" data-line-number="92">    ce_prob &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-93" data-line-number="93">    ce_prob_var &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-94" data-line-number="94">  }</a>
+<a class="sourceLine" id="cb2-95" data-line-number="95"></a>
+<a class="sourceLine" id="cb2-96" data-line-number="96">  <span class="co"># define auxiliary objects</span></a>
+<a class="sourceLine" id="cb2-97" data-line-number="97">  help &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">id =</span> data<span class="op">$</span>id)</a>
+<a class="sourceLine" id="cb2-98" data-line-number="98">  help<span class="op">$</span>from &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb2-99" data-line-number="99">  help<span class="op">$</span>time &lt;-<span class="kw">ifelse</span>(time <span class="op">==</span><span class="st"> </span><span class="dv">0</span>, <span class="fl">0.001</span>, time)</a>
+<a class="sourceLine" id="cb2-100" data-line-number="100">  tra &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">FALSE</span>, <span class="dv">2</span>, <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb2-101" data-line-number="101">  tra[<span class="dv">1</span>, <span class="dv">2</span>] &lt;-<span class="st"> </span><span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb2-102" data-line-number="102">  state.names &lt;-<span class="st"> </span><span class="kw">as.character</span>(<span class="dv">0</span><span class="op">:</span><span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb2-103" data-line-number="103">  </a>
+<a class="sourceLine" id="cb2-104" data-line-number="104">  <span class="cf">if</span>(c1 <span class="op">==</span><span class="st"> </span><span class="dv">0</span> <span class="op">&amp;</span><span class="st"> </span>c2 <span class="op">!=</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-105" data-line-number="105">    help<span class="op">$</span>to &lt;-<span class="st"> </span><span class="kw">ifelse</span>(type2 <span class="op">!=</span><span class="st"> </span><span class="dv">2</span>, <span class="st">&quot;cens&quot;</span>, type2 <span class="op">-</span><span class="st"> </span><span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb2-106" data-line-number="106">    etmmm &lt;-<span class="st"> </span><span class="kw">etm</span>(help, state.names, tra, <span class="st">&quot;cens&quot;</span>, <span class="dt">s =</span> <span class="dv">0</span>)</a>
+<a class="sourceLine" id="cb2-107" data-line-number="107">    setmm &lt;-<span class="st"> </span><span class="kw">summary</span>(etmmm)[[<span class="dv">2</span>]]</a>
+<a class="sourceLine" id="cb2-108" data-line-number="108">    ce_prob &lt;-<span class="st"> </span>setmm[<span class="kw">sum</span>(setmm<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>P</a>
+<a class="sourceLine" id="cb2-109" data-line-number="109">    ce_prob_var &lt;-<span class="st"> </span>setmm[<span class="kw">sum</span>(setmm<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>var</a>
+<a class="sourceLine" id="cb2-110" data-line-number="110">  }</a>
+<a class="sourceLine" id="cb2-111" data-line-number="111"></a>
+<a class="sourceLine" id="cb2-112" data-line-number="112">  <span class="cf">if</span>(c1 <span class="op">!=</span><span class="st"> </span><span class="dv">0</span> <span class="op">&amp;</span><span class="st"> </span>c2 <span class="op">==</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-113" data-line-number="113">    help<span class="op">$</span>to &lt;-<span class="st"> </span><span class="kw">ifelse</span>(type2 <span class="op">!=</span><span class="st"> </span><span class="dv">1</span>, <span class="st">&quot;cens&quot;</span>, type2)</a>
+<a class="sourceLine" id="cb2-114" data-line-number="114">    etmmm &lt;-<span class="st"> </span><span class="kw">etm</span>(help, state.names, tra, <span class="st">&quot;cens&quot;</span>, <span class="dt">s =</span> <span class="dv">0</span>)</a>
+<a class="sourceLine" id="cb2-115" data-line-number="115">    setmm &lt;-<span class="st"> </span><span class="kw">summary</span>(etmmm)[[<span class="dv">2</span>]]</a>
+<a class="sourceLine" id="cb2-116" data-line-number="116">   </a>
+<a class="sourceLine" id="cb2-117" data-line-number="117">    ae_prob &lt;-<span class="st"> </span>setmm[<span class="kw">sum</span>(setmm<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>P</a>
+<a class="sourceLine" id="cb2-118" data-line-number="118">    ae_prob_var &lt;-<span class="st"> </span>setmm[<span class="kw">sum</span>(setmm<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>var</a>
+<a class="sourceLine" id="cb2-119" data-line-number="119">  }</a>
+<a class="sourceLine" id="cb2-120" data-line-number="120"></a>
+<a class="sourceLine" id="cb2-121" data-line-number="121">  <span class="cf">if</span>(c1 <span class="op">!=</span><span class="st"> </span><span class="dv">0</span> <span class="op">&amp;</span><span class="st"> </span>c2 <span class="op">!=</span><span class="st"> </span><span class="dv">0</span>){</a>
+<a class="sourceLine" id="cb2-122" data-line-number="122">    help<span class="op">$</span>to &lt;-<span class="st"> </span><span class="kw">ifelse</span>(<span class="op">!</span>(type2 <span class="op">%in%</span><span class="st"> </span><span class="kw">c</span>(<span class="dv">1</span>, <span class="dv">2</span>)),<span class="st">&quot;cens&quot;</span>, type2)</a>
+<a class="sourceLine" id="cb2-123" data-line-number="123"></a>
+<a class="sourceLine" id="cb2-124" data-line-number="124">    tra &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">FALSE</span>, <span class="dv">3</span>, <span class="dv">3</span>)</a>
+<a class="sourceLine" id="cb2-125" data-line-number="125">    tra[<span class="dv">1</span>, <span class="dv">2</span><span class="op">:</span><span class="dv">3</span>] &lt;-<span class="st"> </span><span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb2-126" data-line-number="126">    state.names &lt;-<span class="st"> </span><span class="kw">as.character</span>(<span class="dv">0</span><span class="op">:</span><span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb2-127" data-line-number="127">    etmmm &lt;-<span class="st"> </span><span class="kw">etm</span>(help, state.names, tra, <span class="st">&quot;cens&quot;</span>, <span class="dt">s =</span> <span class="dv">0</span>)</a>
+<a class="sourceLine" id="cb2-128" data-line-number="128">    setmm &lt;-<span class="st"> </span><span class="kw">summary</span>(etmmm)</a>
+<a class="sourceLine" id="cb2-129" data-line-number="129">   </a>
+<a class="sourceLine" id="cb2-130" data-line-number="130">    ae_prob &lt;-<span class="st"> </span>setmm[[<span class="dv">2</span>]][<span class="kw">sum</span>(setmm[[<span class="dv">2</span>]]<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>P</a>
+<a class="sourceLine" id="cb2-131" data-line-number="131">    ae_prob_var &lt;-<span class="st"> </span>setmm[[<span class="dv">2</span>]][<span class="kw">sum</span>(setmm[[<span class="dv">2</span>]]<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>var</a>
+<a class="sourceLine" id="cb2-132" data-line-number="132"></a>
+<a class="sourceLine" id="cb2-133" data-line-number="133">    ce_prob &lt;-<span class="st"> </span>setmm[[<span class="dv">3</span>]][<span class="kw">sum</span>(setmm[[<span class="dv">3</span>]]<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>P</a>
+<a class="sourceLine" id="cb2-134" data-line-number="134">    ce_prob_var &lt;-<span class="st"> </span>setmm[[<span class="dv">3</span>]][<span class="kw">sum</span>(setmm[[<span class="dv">3</span>]]<span class="op">$</span>time <span class="op">&lt;=</span><span class="st"> </span>tau),]<span class="op">$</span>var</a>
+<a class="sourceLine" id="cb2-135" data-line-number="135">  }</a>
+<a class="sourceLine" id="cb2-136" data-line-number="136"></a>
+<a class="sourceLine" id="cb2-137" data-line-number="137">  res_ae &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;ae_prob&quot;</span> =<span class="st"> </span>ae_prob, <span class="st">&quot;ae_prob_var&quot;</span> =<span class="st"> </span>ae_prob_var)</a>
+<a class="sourceLine" id="cb2-138" data-line-number="138">  res_ce &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;ce_prob&quot;</span> =<span class="st"> </span>ce_prob, <span class="st">&quot;ce_prob_var&quot;</span> =<span class="st"> </span>ce_prob_var)</a>
+<a class="sourceLine" id="cb2-139" data-line-number="139">  </a>
+<a class="sourceLine" id="cb2-140" data-line-number="140">  res &lt;-<span class="st"> </span><span class="kw">rbind</span>(res_ae, res_ce)</a>
+<a class="sourceLine" id="cb2-141" data-line-number="141">  <span class="kw">return</span>(res)</a>
+<a class="sourceLine" id="cb2-142" data-line-number="142">}</a></code></pre></div>
+</div>
+</div>
+<div id="exemplary-estimation-of-ae-probabilities" class="section level1">
+<h1><span class="header-section-number">3</span> Exemplary estimation of AE probabilities</h1>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="co"># parameters of dataset</span></a>
+<a class="sourceLine" id="cb3-2" data-line-number="2">N &lt;-<span class="st"> </span><span class="dv">200</span></a>
+<a class="sourceLine" id="cb3-3" data-line-number="3">max.cens &lt;-<span class="st"> </span><span class="dv">1000</span></a>
+<a class="sourceLine" id="cb3-4" data-line-number="4">min.cens &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb3-5" data-line-number="5"></a>
+<a class="sourceLine" id="cb3-6" data-line-number="6">haz.AE &lt;-<span class="st"> </span><span class="fl">0.00265</span></a>
+<a class="sourceLine" id="cb3-7" data-line-number="7">haz.death &lt;-<span class="st"> </span><span class="fl">0.00151</span></a>
+<a class="sourceLine" id="cb3-8" data-line-number="8">haz.soft &lt;-<span class="st"> </span><span class="fl">0.00227</span></a>
+<a class="sourceLine" id="cb3-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb3-10" data-line-number="10"><span class="co"># generate dataset</span></a>
+<a class="sourceLine" id="cb3-11" data-line-number="11">dat1 &lt;-<span class="st"> </span><span class="kw">data_generation_constant_cens</span>(N, min.cens, max.cens, haz.AE, haz.death, haz.soft, <span class="dt">seed =</span> <span class="dv">2020</span>)</a>
+<a class="sourceLine" id="cb3-12" data-line-number="12">tau &lt;-<span class="st"> </span><span class="kw">max</span>(dat1[, <span class="st">&quot;time_to_event&quot;</span>])</a>
+<a class="sourceLine" id="cb3-13" data-line-number="13"></a>
+<a class="sourceLine" id="cb3-14" data-line-number="14"><span class="co"># compute each estimator</span></a>
+<a class="sourceLine" id="cb3-15" data-line-number="15">IP &lt;-<span class="st"> </span><span class="kw">incidenceProportion</span>(dat1, tau)</a>
+<a class="sourceLine" id="cb3-16" data-line-number="16">ID &lt;-<span class="st"> </span><span class="kw">probTransIncidenceDensity</span>(dat1, tau)</a>
+<a class="sourceLine" id="cb3-17" data-line-number="17">KM &lt;-<span class="st"> </span><span class="kw">oneMinusKaplanMeier</span>(dat1, tau)</a>
+<a class="sourceLine" id="cb3-18" data-line-number="18">AJ2 &lt;-<span class="st"> </span><span class="kw">AJE</span>(dat1, <span class="dt">CE =</span> <span class="dv">2</span>, tau)</a>
+<a class="sourceLine" id="cb3-19" data-line-number="19">AJ3 &lt;-<span class="st"> </span><span class="kw">AJE</span>(dat1, <span class="dt">CE =</span> <span class="dv">3</span>, tau)</a>
+<a class="sourceLine" id="cb3-20" data-line-number="20"></a>
+<a class="sourceLine" id="cb3-21" data-line-number="21"><span class="co"># values of estimators  </span></a>
+<a class="sourceLine" id="cb3-22" data-line-number="22">IP</a></code></pre></div>
+<pre><code>##     ae_prob ae_prob_var 
+##      0.4000      0.0012</code></pre>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" data-line-number="1">ID</a></code></pre></div>
+<pre><code>##      ae_prob  ae_prob_var 
+## 0.8912994147 0.0007273614</code></pre>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb7-1" data-line-number="1">KM</a></code></pre></div>
+<pre><code>##          ae      ae_var 
+## 0.831794881 0.003032255</code></pre>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb9-1" data-line-number="1">AJ2</a></code></pre></div>
+<pre><code>##          ae_prob ae_prob_var
+## res_ae 0.5085148 0.001638129
+## res_ce 0.4657752 0.001650443</code></pre>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1">AJ3</a></code></pre></div>
+<pre><code>##          ae_prob ae_prob_var
+## res_ae 0.4706444 0.001485342
+## res_ce 0.5071403 0.001506841</code></pre>
+</div>
+<div id="references" class="section level1 unnumbered">
+<h1>References</h1>
+<div id="refs" class="references">
+<div id="ref-rufibach_20_savvy">
+<p>Rufibach, Kaspar, Regina Stegherr, Claudia Schmoor, Valentine Jehl, Arthur Allignol, Annette Boeckenhoff, Cornelia Dunger-Baldauf, et al. 2020. “Survival analysis for AdVerse events with VarYing follow-up times – comparison of adverse event risks in randomized controlled trials in an empirical study of the SAVVY project.”</p>
+</div>
+<div id="ref-stegherr_19survival">
+<p>Stegherr, Regina, Jan Beyersmann, Valentine Jehl, Kaspar Rufibach, Friedhelm Leverkus, Claudia Schmoor, and Tim Friede. 2019. “Survival Analysis for Adverse Events with Varying Follow-up Times (Savvy): Rationale and Statistical Concept of a Meta-Analytic Study.” <a href="https://arxiv.org/abs/1912.00263">https://arxiv.org/abs/1912.00263</a>.</p>
+</div>
+<div id="ref-stegherr_20_1sample">
+<p>Stegherr, Regina, Claudia Schmoor, Jan Beyersmann, Kaspar Rufibach, Valentine Jehl, Andreas Brückner, Lewin Eisele, et al. 2020. “Survival Analysis for Adverse Events with Varying Follow-up Times – the One-Sample Case of an Empirical Study of the Savvy Project.”</p>
+</div>
+</div>
 </div>
 
 
