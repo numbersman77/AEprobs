@@ -200,7 +200,7 @@ AJE <- function(data, CE, tau){
 ```
 
 
-# Exemplary estimation of AE probabilities
+# Estimation of AE probabilities
 
 We generate the dataset $S1$ in @stegherr_19survival using the parameter values for Arm A:
 
