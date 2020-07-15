@@ -1,64 +1,19 @@
----
-title: "SAVVY: estimation of AE probabilities"
-author: "Regina Stegherr and Kaspar Rufibach, on behalf of the SAVVY working group"
-date: "Last change: `r format(Sys.time(), '%d %B, %Y')`"
-output: 
-  rmarkdown::html_document:
-    highlight: pygments
-    number_sections: no
-    self_contained: yes
-    toc: yes
-    toc_depth: 3
-    toc_float: yes
-bibliography: biblio.bib
----
-
-# Background
-
-The assessment of safety is an important aspect of the evaluation of new therapies in clinical trials, with analyses of adverse events being an essential part of this. Standard methods for the analysis of adverse events such as the incidence proportion, i.e. the number of patients with a specific adverse event out of all patients in the treatment groups, do not account for both varying follow-up times and competing risks. Alternative approaches such as the Aalen-Johansen estimator of the cumulative incidence function have been suggested. Theoretical arguments and numerical evaluations support the application of these more advanced methodology, but as yet there is to our knowledge only insufficient empirical evidence whether these methods would lead to different conclusions in safety evaluations. The Survival analysis for AdVerse events with VarYing follow-up times (SAVVY) project strives to close this gap in evidence by conducting a meta-analytical study to assess the impact of the methodology on the conclusion of the safety assessment empirically. Three papers are currently under review summarizing the rationale and results of the project: 
-
-* @stegherr_19survival: statistical analysis plan, presenting the rationale and statistical concept of the empirical study conducted as part of the SAVVY project. The statistical methods are presented in unified notation and examples of their implementation in R and SAS are provided.
-* @stegherr_20_1sample: 1-sample case, compares estimators of AE probabilities in one treatment arm,
-* @rufibach_20_savvy: 2-sample case, compares relative risk estimators comparing two treatment arms based on (1) AE probabilities and (2) hazards.
-
-# Purpose of this document
-
-This R markdown file provides easy accessible code to compute all the estimators for AE probabilities that are compared to each other in these papers.
-
-# Setup {.tabset .tabset-fade .tabset-pills}
-
-## Packages
-
-
-```{r, include=TRUE, echo=FALSE}
+## ---- include=TRUE, echo=FALSE------------------------------------------------
 # --------------------------------------------------------------
 # generate R file with code from this file
 # --------------------------------------------------------------
 knitr::purl(input = "SAVVY_AEprobs.Rmd", output = "SAVVY_AEprobs.r")
-```
 
 
-
-
-```{r, include=TRUE, echo=TRUE}
+## ---- include=TRUE, echo=TRUE-------------------------------------------------
 # --------------------------------------------------------------
 # packages
 # --------------------------------------------------------------
 packs <- c("data.table", "etm", "survival", "mvna", "knitr")    
 for (i in 1:length(packs)){library(packs[i], character.only = TRUE)}
-```
 
-## Functions
 
-Below all functions are defined. 
-
-* `data_generation_constant_cens`: This function generates the dataset denoted by $S1$ in Table~4 of @stegherr_19survival, i.e. we assume constant hazards for the AE hazard, the hazard for the competing event of death, and the hazard for the "soft" competing events. Censoring is uniform.
-* `incidenceProportion`: Compute incidence proportion.
-* `probTransIncidenceDensity`: Compute probability transform incidence density.
-* `oneMinusKaplanMeier`: Compute 1 - Kaplan-Meier estimator.
-* `AJE`: Compute Aalen-Johansen estimator.
-
-```{r, include=TRUE, echo=TRUE}
+## ---- include=TRUE, echo=TRUE-------------------------------------------------
 # --------------------------------------------------------------
 # functions
 # --------------------------------------------------------------
@@ -208,14 +163,9 @@ AJE <- function(data, CE, tau){
   res <- rbind(res_ae, res_ce)
   return(res)
 }
-```
 
 
-# Estimation of AE probabilities
-
-We generate the dataset $S1$ in @stegherr_19survival using the parameter values for Arm A:
-
-```{r, include=TRUE, echo=TRUE}
+## ---- include=TRUE, echo=TRUE-------------------------------------------------
 
 # sample size
 N <- 200
@@ -234,17 +184,13 @@ dat1 <- data_generation_constant_cens(N, min.cens, max.cens, haz.AE, haz.death, 
 
 # compute tau
 tau <- max(dat1[, "time_to_event"])
-```
 
-The structure of the dataset looks as follows:
 
-```{r, include=TRUE, echo=TRUE}
+## ---- include=TRUE, echo=TRUE-------------------------------------------------
 kable(head(dat1, 10), align = c("crcr"))
-```
 
-For this dataset we then compute all the estimators that enter the comparison in our papers:
 
-```{r, include=TRUE, echo=TRUE}
+## ---- include=TRUE, echo=TRUE-------------------------------------------------
 
 # compute each estimator
 IP <- incidenceProportion(dat1, tau)
@@ -260,7 +206,4 @@ rownames(tab) <- c("incidence proportion", "incidence density", "1 - Kaplan-Meie
                    "Aalen-Johansen (death only), AE risk", "Aalen-Johansen (death only), CE risk",
                    "Aalen-Johansen (all CEs), AE risk", "Aalen-Johansen (all CEs), CE risk")
 kable(tab, digits = c(3, 5))
-```
 
-
-# References
