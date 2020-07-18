@@ -1,4 +1,4 @@
-## ---- include=TRUE, echo=FALSE------------------------------------------------
+## ---- include=FALSE, echo=FALSE-----------------------------------------------
 # --------------------------------------------------------------
 # generate R file with code from this file
 # --------------------------------------------------------------
@@ -19,7 +19,7 @@ for (i in 1:length(packs)){library(packs[i], character.only = TRUE)}
 # --------------------------------------------------------------
 
 # function to generate dataset with constant hazards for AE, death, and soft competing events
-data_generation_constant_cens <- function(N, min.cens, max.cens.A, haz.AE, haz.death,
+data_generation_constant_cens <- function(N, min.cens, max.cens, haz.AE, haz.death,
                                           haz.soft, seed = 57 * i + 5){
   
   # status, 1 for AE, 2 for death 3 for soft competing event
@@ -64,6 +64,27 @@ probTransIncidenceDensity <- function(data, tau){
   ae_var <- exp(-incidence.dens * tau) ^ 2 * var_A_var * tau ^ 2
 
   res <- c("ae_prob" = ae, "ae_prob_var" = ae_var)
+  return(res)
+}
+
+# compute probability transform incidence density accounting for CE
+probTransIncidenceDensityCompRisk <- function(data, CE, tau){
+  
+  data2 <- data[, type_of_event2 := ifelse(CE == 2 & data$type_of_event == 3, 0, 
+                                           ifelse(CE == 3 & data$type_of_event == 3, 2, type_of_event))]
+  time2 <- ifelse(data2$time_to_event <= tau, data2$time_to_event, tau)
+  s2 <- sum(time2)
+  
+  id <- sum(dim(data2[type_of_event2 == 1 & time_to_event <= tau])[1]) / s2
+  id_ce <- sum(dim(data2[type_of_event2 == 2 & time_to_event <= tau])[1]) / s2
+  tmp <- id + id_ce
+  ett <- exp(-tau * tmp)
+
+  ae_prob <- id / tmp * (1 - exp(- tau*tmp))
+  ae_prob_var <- (((ett *      (id_ce * (1 / ett - 1) + tau * id * tmp)) / tmp ^ 2) ^ 2 * id / s2 + 
+                  ((ett * id * (tau * tmp - 1 / ett + 1)) / tmp ^ 2) ^ 2 * id_ce / s2)
+
+  res <- c("ae_prob" = ae_prob, "ae_prob_var" = ae_prob_var)
   return(res)
 }
 
@@ -195,15 +216,30 @@ kable(head(dat1, 10), align = c("crcr"))
 # compute each estimator
 IP <- incidenceProportion(dat1, tau)
 ID <- probTransIncidenceDensity(dat1, tau)
+IDCE <- probTransIncidenceDensityCompRisk(dat1, CE = 2, tau)
 KM <- oneMinusKaplanMeier(dat1, tau)
 AJ2 <- AJE(dat1, CE = 2, tau)
 AJ3 <- AJE(dat1, CE = 3, tau)
 
 # display
-tab <- rbind(IP, ID, KM, AJ2, AJ3)
+tab <- rbind(IP, ID, IDCE, KM, AJ2[1, ], AJ3[1, ])
 colnames(tab) <- c("estimated AE probability", "variance of estimation")
-rownames(tab) <- c("incidence proportion", "incidence density", "1 - Kaplan-Meier", 
-                   "Aalen-Johansen (death only), AE risk", "Aalen-Johansen (death only), CE risk",
-                   "Aalen-Johansen (all CEs), AE risk", "Aalen-Johansen (all CEs), CE risk")
+rownames(tab) <- c("incidence proportion", "probability transform incidence density", 
+                   "probability transform incidence density accounting for competing event", 
+                   "1 - Kaplan-Meier", "Aalen-Johansen (death only), AE risk",
+                   "Aalen-Johansen (all CEs), AE risk")
+
+# probability of AE
+kable(tab, digits = c(3, 5))
+
+
+## ---- include=TRUE, echo=TRUE-------------------------------------------------
+# display
+tab <- rbind(AJ2[2, ], AJ3[2, ])
+colnames(tab) <- c("estimated probability", "variance of estimation")
+rownames(tab) <- c("Aalen-Johansen (death only), CE risk",
+                   "Aalen-Johansen (all CEs), CE risk")
+
+# probability of AE
 kable(tab, digits = c(3, 5))
 
