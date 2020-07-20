@@ -68,7 +68,7 @@ probTransIncidenceDensity <- function(data, tau){
 }
 
 # compute probability transform incidence density accounting for CE
-probTransIncidenceDensityCompRisk <- function(data, CE, tau){
+probTransIncidprobTransIncidenceDensityCompEvents <- function(data, CE, tau){
   
   data2 <- data[, type_of_event2 := ifelse(CE == 2 & data$type_of_event == 3, 0, 
                                            ifelse(CE == 3 & data$type_of_event == 3, 2, type_of_event))]
@@ -216,17 +216,22 @@ kable(head(dat1, 10), align = c("crcr"))
 # compute each estimator
 IP <- incidenceProportion(dat1, tau)
 ID <- probTransIncidenceDensity(dat1, tau)
-IDCE <- probTransIncidenceDensityCompRisk(dat1, CE = 2, tau)
 KM <- oneMinusKaplanMeier(dat1, tau)
+
+# competing event "death only"
+IDCE2 <- probTransIncidprobTransIncidenceDensityCompEvents(dat1, CE = 2, tau)
 AJ2 <- AJE(dat1, CE = 2, tau)
+
+# account for all competing events
+IDCE3 <- probTransIncidprobTransIncidenceDensityCompEvents(dat1, CE = 3, tau)
 AJ3 <- AJE(dat1, CE = 3, tau)
 
 # display
-tab <- rbind(IP, ID, IDCE, KM, AJ2[1, ], AJ3[1, ])
+tab <- rbind(IP, ID, KM, IDCE2, AJ2[1, ], IDCE3, AJ3[1, ])
 colnames(tab) <- c("estimated AE probability", "variance of estimation")
-rownames(tab) <- c("incidence proportion", "probability transform incidence density", 
-                   "probability transform incidence density accounting for competing event", 
-                   "1 - Kaplan-Meier", "Aalen-Johansen (death only), AE risk",
+rownames(tab) <- c("incidence proportion", "probability transform incidence density ignoring competing event",
+                   "1 - Kaplan-Meier", "probability transform incidence density (death only)", 
+                   "Aalen-Johansen (death only), AE risk", "probability transform incidence density (all CEs)",
                    "Aalen-Johansen (all CEs), AE risk")
 
 # probability of AE

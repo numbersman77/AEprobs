@@ -1634,10 +1634,12 @@ div.tocify {
 <ul>
 <li><code>data_generation_constant_cens</code>: This function generates the dataset denoted by <span class="math inline">\(S1\)</span> in Table~4 of <span class="citation">Stegherr et al. (2019)</span>, i.e. we assume constant hazards for the AE hazard, the hazard for the competing event of death, and the hazard for the “soft” competing events. Censoring is uniform.</li>
 <li><code>incidenceProportion</code>: Compute incidence proportion.</li>
-<li><code>probTransIncidenceDensity</code>: Compute probability transform incidence density.</li>
+<li><code>probTransIncidenceDensity</code>: Compute probability transform incidence density ignoring competing events.</li>
+<li><code>probTransIncidenceDensity</code>: Compute probability transform incidence density ignoring competing events.</li>
 <li><code>oneMinusKaplanMeier</code>: Compute 1 - Kaplan-Meier estimator.</li>
 <li><code>AJE</code>: Compute Aalen-Johansen estimator.</li>
 </ul>
+<p>The argument <code>CE</code> codifies the type of competing event: <code>CE = 2</code> refers to a competing event of <em>death only</em> whereas <code>CE = 3</code> refers to <em>all competing events</em>.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="co"># --------------------------------------------------------------</span></a>
 <a class="sourceLine" id="cb2-2" data-line-number="2"><span class="co"># functions</span></a>
 <a class="sourceLine" id="cb2-3" data-line-number="3"><span class="co"># --------------------------------------------------------------</span></a>
@@ -1692,7 +1694,7 @@ div.tocify {
 <a class="sourceLine" id="cb2-52" data-line-number="52">}</a>
 <a class="sourceLine" id="cb2-53" data-line-number="53"></a>
 <a class="sourceLine" id="cb2-54" data-line-number="54"><span class="co"># compute probability transform incidence density accounting for CE</span></a>
-<a class="sourceLine" id="cb2-55" data-line-number="55">probTransIncidenceDensityCompRisk &lt;-<span class="st"> </span><span class="cf">function</span>(data, CE, tau){</a>
+<a class="sourceLine" id="cb2-55" data-line-number="55">probTransIncidprobTransIncidenceDensityCompEvents &lt;-<span class="st"> </span><span class="cf">function</span>(data, CE, tau){</a>
 <a class="sourceLine" id="cb2-56" data-line-number="56">  </a>
 <a class="sourceLine" id="cb2-57" data-line-number="57">  data2 &lt;-<span class="st"> </span>data[, type_of_event2 <span class="op">:</span><span class="er">=</span><span class="st"> </span><span class="kw">ifelse</span>(CE <span class="op">==</span><span class="st"> </span><span class="dv">2</span> <span class="op">&amp;</span><span class="st"> </span>data<span class="op">$</span>type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">3</span>, <span class="dv">0</span>, </a>
 <a class="sourceLine" id="cb2-58" data-line-number="58">                                           <span class="kw">ifelse</span>(CE <span class="op">==</span><span class="st"> </span><span class="dv">3</span> <span class="op">&amp;</span><span class="st"> </span>data<span class="op">$</span>type_of_event <span class="op">==</span><span class="st"> </span><span class="dv">3</span>, <span class="dv">2</span>, type_of_event))]</a>
@@ -1908,21 +1910,26 @@ div.tocify {
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="co"># compute each estimator</span></a>
 <a class="sourceLine" id="cb5-2" data-line-number="2">IP &lt;-<span class="st"> </span><span class="kw">incidenceProportion</span>(dat1, tau)</a>
 <a class="sourceLine" id="cb5-3" data-line-number="3">ID &lt;-<span class="st"> </span><span class="kw">probTransIncidenceDensity</span>(dat1, tau)</a>
-<a class="sourceLine" id="cb5-4" data-line-number="4">IDCE &lt;-<span class="st"> </span><span class="kw">probTransIncidenceDensityCompRisk</span>(dat1, <span class="dt">CE =</span> <span class="dv">2</span>, tau)</a>
-<a class="sourceLine" id="cb5-5" data-line-number="5">KM &lt;-<span class="st"> </span><span class="kw">oneMinusKaplanMeier</span>(dat1, tau)</a>
-<a class="sourceLine" id="cb5-6" data-line-number="6">AJ2 &lt;-<span class="st"> </span><span class="kw">AJE</span>(dat1, <span class="dt">CE =</span> <span class="dv">2</span>, tau)</a>
-<a class="sourceLine" id="cb5-7" data-line-number="7">AJ3 &lt;-<span class="st"> </span><span class="kw">AJE</span>(dat1, <span class="dt">CE =</span> <span class="dv">3</span>, tau)</a>
-<a class="sourceLine" id="cb5-8" data-line-number="8"></a>
-<a class="sourceLine" id="cb5-9" data-line-number="9"><span class="co"># display</span></a>
-<a class="sourceLine" id="cb5-10" data-line-number="10">tab &lt;-<span class="st"> </span><span class="kw">rbind</span>(IP, ID, IDCE, KM, AJ2[<span class="dv">1</span>, ], AJ3[<span class="dv">1</span>, ])</a>
-<a class="sourceLine" id="cb5-11" data-line-number="11"><span class="kw">colnames</span>(tab) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;estimated AE probability&quot;</span>, <span class="st">&quot;variance of estimation&quot;</span>)</a>
-<a class="sourceLine" id="cb5-12" data-line-number="12"><span class="kw">rownames</span>(tab) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;incidence proportion&quot;</span>, <span class="st">&quot;probability transform incidence density&quot;</span>, </a>
-<a class="sourceLine" id="cb5-13" data-line-number="13">                   <span class="st">&quot;probability transform incidence density accounting for competing event&quot;</span>, </a>
-<a class="sourceLine" id="cb5-14" data-line-number="14">                   <span class="st">&quot;1 - Kaplan-Meier&quot;</span>, <span class="st">&quot;Aalen-Johansen (death only), AE risk&quot;</span>,</a>
-<a class="sourceLine" id="cb5-15" data-line-number="15">                   <span class="st">&quot;Aalen-Johansen (all CEs), AE risk&quot;</span>)</a>
-<a class="sourceLine" id="cb5-16" data-line-number="16"></a>
-<a class="sourceLine" id="cb5-17" data-line-number="17"><span class="co"># probability of AE</span></a>
-<a class="sourceLine" id="cb5-18" data-line-number="18"><span class="kw">kable</span>(tab, <span class="dt">digits =</span> <span class="kw">c</span>(<span class="dv">3</span>, <span class="dv">5</span>))</a></code></pre></div>
+<a class="sourceLine" id="cb5-4" data-line-number="4">KM &lt;-<span class="st"> </span><span class="kw">oneMinusKaplanMeier</span>(dat1, tau)</a>
+<a class="sourceLine" id="cb5-5" data-line-number="5"></a>
+<a class="sourceLine" id="cb5-6" data-line-number="6"><span class="co"># competing event &quot;death only&quot;</span></a>
+<a class="sourceLine" id="cb5-7" data-line-number="7">IDCE2 &lt;-<span class="st"> </span><span class="kw">probTransIncidprobTransIncidenceDensityCompEvents</span>(dat1, <span class="dt">CE =</span> <span class="dv">2</span>, tau)</a>
+<a class="sourceLine" id="cb5-8" data-line-number="8">AJ2 &lt;-<span class="st"> </span><span class="kw">AJE</span>(dat1, <span class="dt">CE =</span> <span class="dv">2</span>, tau)</a>
+<a class="sourceLine" id="cb5-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb5-10" data-line-number="10"><span class="co"># account for all competing events</span></a>
+<a class="sourceLine" id="cb5-11" data-line-number="11">IDCE3 &lt;-<span class="st"> </span><span class="kw">probTransIncidprobTransIncidenceDensityCompEvents</span>(dat1, <span class="dt">CE =</span> <span class="dv">3</span>, tau)</a>
+<a class="sourceLine" id="cb5-12" data-line-number="12">AJ3 &lt;-<span class="st"> </span><span class="kw">AJE</span>(dat1, <span class="dt">CE =</span> <span class="dv">3</span>, tau)</a>
+<a class="sourceLine" id="cb5-13" data-line-number="13"></a>
+<a class="sourceLine" id="cb5-14" data-line-number="14"><span class="co"># display</span></a>
+<a class="sourceLine" id="cb5-15" data-line-number="15">tab &lt;-<span class="st"> </span><span class="kw">rbind</span>(IP, ID, KM, IDCE2, AJ2[<span class="dv">1</span>, ], IDCE3, AJ3[<span class="dv">1</span>, ])</a>
+<a class="sourceLine" id="cb5-16" data-line-number="16"><span class="kw">colnames</span>(tab) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;estimated AE probability&quot;</span>, <span class="st">&quot;variance of estimation&quot;</span>)</a>
+<a class="sourceLine" id="cb5-17" data-line-number="17"><span class="kw">rownames</span>(tab) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;incidence proportion&quot;</span>, <span class="st">&quot;probability transform incidence density ignoring competing event&quot;</span>,</a>
+<a class="sourceLine" id="cb5-18" data-line-number="18">                   <span class="st">&quot;1 - Kaplan-Meier&quot;</span>, <span class="st">&quot;probability transform incidence density (death only)&quot;</span>, </a>
+<a class="sourceLine" id="cb5-19" data-line-number="19">                   <span class="st">&quot;Aalen-Johansen (death only), AE risk&quot;</span>, <span class="st">&quot;probability transform incidence density (all CEs)&quot;</span>,</a>
+<a class="sourceLine" id="cb5-20" data-line-number="20">                   <span class="st">&quot;Aalen-Johansen (all CEs), AE risk&quot;</span>)</a>
+<a class="sourceLine" id="cb5-21" data-line-number="21"></a>
+<a class="sourceLine" id="cb5-22" data-line-number="22"><span class="co"># probability of AE</span></a>
+<a class="sourceLine" id="cb5-23" data-line-number="23"><span class="kw">kable</span>(tab, <span class="dt">digits =</span> <span class="kw">c</span>(<span class="dv">3</span>, <span class="dv">5</span>))</a></code></pre></div>
 <table>
 <thead>
 <tr class="header">
@@ -1938,19 +1945,19 @@ div.tocify {
 <td align="right">0.00120</td>
 </tr>
 <tr class="even">
-<td>probability transform incidence density</td>
+<td>probability transform incidence density ignoring competing event</td>
 <td align="right">0.891</td>
 <td align="right">0.00073</td>
 </tr>
 <tr class="odd">
-<td>probability transform incidence density accounting for competing event</td>
-<td align="right">0.509</td>
-<td align="right">0.00157</td>
-</tr>
-<tr class="even">
 <td>1 - Kaplan-Meier</td>
 <td align="right">0.832</td>
 <td align="right">0.00303</td>
+</tr>
+<tr class="even">
+<td>probability transform incidence density (death only)</td>
+<td align="right">0.509</td>
+<td align="right">0.00157</td>
 </tr>
 <tr class="odd">
 <td>Aalen-Johansen (death only), AE risk</td>
@@ -1958,6 +1965,11 @@ div.tocify {
 <td align="right">0.00164</td>
 </tr>
 <tr class="even">
+<td>probability transform incidence density (all CEs)</td>
+<td align="right">0.472</td>
+<td align="right">0.00146</td>
+</tr>
+<tr class="odd">
 <td>Aalen-Johansen (all CEs), AE risk</td>
 <td align="right">0.471</td>
 <td align="right">0.00149</td>
