@@ -1,10 +1,9 @@
 % Encoding: UTF-8
 
-@Article{rufibach_20_2sample,
-  author  = {Rufibach, Kaspar and Stegherr, Regina and Schmoor, Claudia and Jehl, Valentine and Allignol, Arthur and Boeckenhoff, Annette and Dunger-Baldauf, Cornelia and Eisele, Lewin and K\"unzel, Thomas and Kupas, Katrin and Leverkus Friedhelm and Trampisch, Matthias and Zhao, Yumin and Friede, Tim and Beyersmann, Jan},
-  title   = {{Survival analysis for AdVerse events with VarYing follow-up times (SAVVY) -- comparison of adverse event risks in randomized controlled trials}},
-  journal = {Submitted},
-  year    = {2020},
+@Misc{rufibach_20_2sample,
+  author = {Rufibach, Kaspar and Stegherr, Regina and Schmoor, Claudia and Jehl, Valentine and Allignol, Arthur and Boeckenhoff, Annette and Dunger-Baldauf, Cornelia and Eisele, Lewin and K\"unzel, Thomas and Kupas, Katrin and Leverkus Friedhelm and Trampisch, Matthias and Zhao, Yumin and Friede, Tim and Beyersmann, Jan},
+  title  = {{Survival analysis for AdVerse events with VarYing follow-up times (SAVVY) -- comparison of adverse event risks in randomized controlled trials}},
+  year   = {2020},
 }
 
 @Article{stegherr_20_1sample,
