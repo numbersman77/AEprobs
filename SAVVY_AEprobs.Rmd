@@ -23,7 +23,7 @@ The assessment of safety is an important aspect of the evaluation of new therapi
 
 # Purpose of this document
 
-This R markdown file provides easy accessible code to compute all the estimators for AE probabilities that are compared to each other in these papers.
+This R markdown file provides easy accessible code to compute all the estimators for AE probabilities that are compared to each other in these papers. The github repository where this document is hosted is available [here](https://github.com/numbersman77/AEprobs).
 
 # Setup {.tabset .tabset-fade .tabset-pills}
 
