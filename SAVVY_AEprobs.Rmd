@@ -52,7 +52,7 @@ for (i in 1:length(packs)){library(packs[i], character.only = TRUE)}
 
 Below all functions are defined. 
 
-* `data_generation_constant_cens`: This function generates the dataset denoted by $S1$ in Table~4 of @stegherr_20_sap, i.e. we assume constant hazards for the AE hazard, the hazard for the competing event of death, and the hazard for the "soft" competing events. Censoring is uniform.
+* `data_generation_constant_cens`: This function generates the dataset denoted by $S1$ in Table~4 of @stegherr_20estimating, i.e. we assume constant hazards for the AE hazard, the hazard for the competing event of death, and the hazard for the "soft" competing events. Censoring is uniform.
 * `incidenceProportion`: Compute incidence proportion.
 * `probTransIncidenceDensity`: Compute probability transform incidence density ignoring competing events.
 * `probTransIncidenceDensity`: Compute probability transform incidence density ignoring competing events.
